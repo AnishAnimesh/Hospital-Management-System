@@ -4,6 +4,7 @@ import axios from "axios";
 function App() {
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [appointments, setAppointments] = useState([]);
 
   const [patientForm, setPatientForm] = useState({
     name: "",
@@ -18,6 +19,14 @@ function App() {
     specialization: ""
   });
 
+  const [appointmentForm, setAppointmentForm] = useState({
+    appointment_date: "",
+    appointment_time: "",
+    status: "",
+    patient_id: "",
+    doctor_id: ""
+  });
+
   // FETCH DATA
   const fetchPatients = () => {
     axios.get("http://localhost:5001/patients")
@@ -29,9 +38,15 @@ function App() {
       .then(res => setDoctors(res.data));
   };
 
+  const fetchAppointments = () => {
+    axios.get("http://localhost:5001/appointments")
+      .then(res => setAppointments(res.data));
+  };
+
   useEffect(() => {
     fetchPatients();
     fetchDoctors();
+    fetchAppointments();
   }, []);
 
   // HANDLE INPUT
@@ -41,6 +56,10 @@ function App() {
 
   const handleDoctorChange = (e) => {
     setDoctorForm({ ...doctorForm, [e.target.name]: e.target.value });
+  };
+
+  const handleAppointmentChange = (e) => {
+    setAppointmentForm({ ...appointmentForm, [e.target.name]: e.target.value });
   };
 
   // SUBMIT
@@ -68,6 +87,23 @@ function App() {
           specialization: ""
         });
         fetchDoctors();
+      });
+  };
+
+  const handleAppointmentSubmit = (e) => {
+    e.preventDefault();
+
+    axios.post("http://localhost:5001/appointments", appointmentForm)
+      .then(() => {
+        alert("Appointment Added ✅");
+        setAppointmentForm({
+          appointment_date: "",
+          appointment_time: "",
+          status: "",
+          patient_id: "",
+          doctor_id: ""
+        });
+        fetchAppointments();
       });
   };
 
@@ -107,12 +143,41 @@ function App() {
         </button>
       </form>
 
-      {/* DOCTOR LIST */}
-      <h2 className="text-xl font-semibold mb-2">Doctors</h2>
+      {/* APPOINTMENT FORM */}
+      <form onSubmit={handleAppointmentSubmit} className="bg-white p-4 shadow rounded mb-6">
+        <h2 className="text-xl font-semibold mb-2">Book Appointment</h2>
 
-      {doctors.map(d => (
-        <div key={d.doctor_id} className="border p-2 mb-2 rounded">
-          {d.name} - {d.department} - {d.specialization}
+        <input type="date" name="appointment_date" value={appointmentForm.appointment_date} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required />
+
+        <input type="time" name="appointment_time" value={appointmentForm.appointment_time} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required />
+
+        <input name="status" placeholder="Status" value={appointmentForm.status} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required />
+
+        <select name="patient_id" value={appointmentForm.patient_id} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required>
+          <option value="">Select Patient</option>
+          {patients.map(p => (
+            <option key={p.patient_id} value={p.patient_id}>{p.name}</option>
+          ))}
+        </select>
+
+        <select name="doctor_id" value={appointmentForm.doctor_id} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required>
+          <option value="">Select Doctor</option>
+          {doctors.map(d => (
+            <option key={d.doctor_id} value={d.doctor_id}>{d.name}</option>
+          ))}
+        </select>
+
+        <button className="bg-purple-500 text-white px-4 py-2 rounded">
+          Book Appointment
+        </button>
+      </form>
+
+      {/* APPOINTMENT LIST */}
+      <h2 className="text-xl font-semibold mb-2">Appointments</h2>
+
+      {appointments.map(a => (
+        <div key={a.appointment_id} className="border p-2 mb-2 rounded">
+          {a.patient_name} → {a.doctor_name} | {a.appointment_date} | {a.appointment_time} | {a.status}
         </div>
       ))}
 

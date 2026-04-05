@@ -91,3 +91,42 @@ app.post("/doctors", (req, res) => {
     }
   );
 });
+
+// GET all appointments
+app.get("/appointments", (req, res) => {
+  const query = `
+    SELECT a.appointment_id, a.appointment_date, a.appointment_time, a.status,
+           p.name AS patient_name,
+           d.name AS doctor_name
+    FROM appointment a
+    JOIN patients p ON a.patient_id = p.patient_id
+    JOIN doctor d ON a.doctor_id = d.doctor_id
+  `;
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.log(err);
+      res.send(err);
+    } else {
+      res.json(result);
+    }
+  });
+});
+
+// ADD appointment
+app.post("/appointments", (req, res) => {
+  const { appointment_date, appointment_time, status, patient_id, doctor_id } = req.body;
+
+  db.query(
+    "INSERT INTO appointment (appointment_date, appointment_time, status, patient_id, doctor_id) VALUES (?, ?, ?, ?, ?)",
+    [appointment_date, appointment_time, status, patient_id, doctor_id],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+        res.send(err);
+      } else {
+        res.send("Appointment Added ✅");
+      }
+    }
+  );
+});
