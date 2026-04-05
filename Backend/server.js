@@ -130,3 +130,40 @@ app.post("/appointments", (req, res) => {
     }
   );
 });
+
+// GET all bills
+app.get("/bills", (req, res) => {
+  const query = `
+    SELECT b.bill_id, b.bill_date, b.amount, b.payment_status,
+           p.name AS patient_name
+    FROM bill b
+    JOIN patients p ON b.patient_id = p.patient_id
+  `;
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.log(err);
+      res.send(err);
+    } else {
+      res.json(result);
+    }
+  });
+});
+
+// ADD bill
+app.post("/bills", (req, res) => {
+  const { bill_date, amount, payment_status, patient_id } = req.body;
+
+  db.query(
+    "INSERT INTO bill (bill_date, amount, payment_status, patient_id) VALUES (?, ?, ?, ?)",
+    [bill_date, amount, payment_status, patient_id],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+        res.send(err);
+      } else {
+        res.send("Bill Added ✅");
+      }
+    }
+  );
+});

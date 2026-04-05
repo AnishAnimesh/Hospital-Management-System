@@ -5,6 +5,7 @@ function App() {
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [bills, setBills] = useState([]);
 
   const [patientForm, setPatientForm] = useState({
     name: "",
@@ -27,6 +28,13 @@ function App() {
     doctor_id: ""
   });
 
+  const [billForm, setBillForm] = useState({
+    bill_date: "",
+    amount: "",
+    payment_status: "",
+    patient_id: ""
+  });
+
   // FETCH DATA
   const fetchPatients = () => {
     axios.get("http://localhost:5001/patients")
@@ -43,10 +51,16 @@ function App() {
       .then(res => setAppointments(res.data));
   };
 
+  const fetchBills = () => {
+    axios.get("http://localhost:5001/bills")
+      .then(res => setBills(res.data));
+  };
+
   useEffect(() => {
     fetchPatients();
     fetchDoctors();
     fetchAppointments();
+    fetchBills();
   }, []);
 
   // HANDLE INPUT
@@ -62,10 +76,13 @@ function App() {
     setAppointmentForm({ ...appointmentForm, [e.target.name]: e.target.value });
   };
 
+  const handleBillChange = (e) => {
+    setBillForm({ ...billForm, [e.target.name]: e.target.value });
+  };
+
   // SUBMIT
   const handlePatientSubmit = (e) => {
     e.preventDefault();
-
     axios.post("http://localhost:5001/patients", patientForm)
       .then(() => {
         alert("Patient Added ✅");
@@ -76,7 +93,6 @@ function App() {
 
   const handleDoctorSubmit = (e) => {
     e.preventDefault();
-
     axios.post("http://localhost:5001/doctors", doctorForm)
       .then(() => {
         alert("Doctor Added ✅");
@@ -92,7 +108,6 @@ function App() {
 
   const handleAppointmentSubmit = (e) => {
     e.preventDefault();
-
     axios.post("http://localhost:5001/appointments", appointmentForm)
       .then(() => {
         alert("Appointment Added ✅");
@@ -107,10 +122,27 @@ function App() {
       });
   };
 
-  return (
-    <div className="p-6 max-w-2xl mx-auto">
+  const handleBillSubmit = (e) => {
+    e.preventDefault();
+    axios.post("http://localhost:5001/bills", billForm)
+      .then(() => {
+        alert("Bill Added ✅");
+        setBillForm({
+          bill_date: "",
+          amount: "",
+          payment_status: "",
+          patient_id: ""
+        });
+        fetchBills();
+      });
+  };
 
-      <h1 className="text-3xl font-bold mb-4">Hospital Management</h1>
+  return (
+    <div className="p-6 max-w-3xl mx-auto">
+
+      <h1 className="text-3xl font-bold mb-6 text-center">
+        Hospital Management System
+      </h1>
 
       {/* PATIENT FORM */}
       <form onSubmit={handlePatientSubmit} className="bg-white p-4 shadow rounded mb-6">
@@ -148,9 +180,7 @@ function App() {
         <h2 className="text-xl font-semibold mb-2">Book Appointment</h2>
 
         <input type="date" name="appointment_date" value={appointmentForm.appointment_date} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required />
-
         <input type="time" name="appointment_time" value={appointmentForm.appointment_time} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required />
-
         <input name="status" placeholder="Status" value={appointmentForm.status} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required />
 
         <select name="patient_id" value={appointmentForm.patient_id} onChange={handleAppointmentChange} className="border p-2 w-full mb-2" required>
@@ -172,12 +202,39 @@ function App() {
         </button>
       </form>
 
-      {/* APPOINTMENT LIST */}
-      <h2 className="text-xl font-semibold mb-2">Appointments</h2>
+      {/* BILL FORM */}
+      <form onSubmit={handleBillSubmit} className="bg-white p-4 shadow rounded mb-6">
+        <h2 className="text-xl font-semibold mb-2">Generate Bill</h2>
 
+        <input type="date" name="bill_date" value={billForm.bill_date} onChange={handleBillChange} className="border p-2 w-full mb-2" required />
+        <input type="number" name="amount" placeholder="Amount" value={billForm.amount} onChange={handleBillChange} className="border p-2 w-full mb-2" required />
+        <input name="payment_status" placeholder="Payment Status" value={billForm.payment_status} onChange={handleBillChange} className="border p-2 w-full mb-2" required />
+
+        <select name="patient_id" value={billForm.patient_id} onChange={handleBillChange} className="border p-2 w-full mb-2" required>
+          <option value="">Select Patient</option>
+          {patients.map(p => (
+            <option key={p.patient_id} value={p.patient_id}>{p.name}</option>
+          ))}
+        </select>
+
+        <button className="bg-red-500 text-white px-4 py-2 rounded">
+          Generate Bill
+        </button>
+      </form>
+
+      {/* APPOINTMENTS LIST */}
+      <h2 className="text-xl font-semibold mb-2">Appointments</h2>
       {appointments.map(a => (
         <div key={a.appointment_id} className="border p-2 mb-2 rounded">
           {a.patient_name} → {a.doctor_name} | {a.appointment_date} | {a.appointment_time} | {a.status}
+        </div>
+      ))}
+
+      {/* BILLS LIST */}
+      <h2 className="text-xl font-semibold mt-6 mb-2">Bills</h2>
+      {bills.map(b => (
+        <div key={b.bill_id} className="border p-2 mb-2 rounded">
+          {b.patient_name} | ₹{b.amount} | {b.payment_status} | {b.bill_date}
         </div>
       ))}
 
