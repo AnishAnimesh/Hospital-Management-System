@@ -61,3 +61,33 @@ app.post("/patients", (req, res) => {
     }
   );
 });
+
+// GET all doctors
+app.get("/doctors", (req, res) => {
+  db.query("SELECT * FROM doctor", (err, result) => {
+    if (err) {
+      console.log(err);
+      res.send(err);
+    } else {
+      res.json(result);
+    }
+  });
+});
+
+// ADD doctor
+app.post("/doctors", (req, res) => {
+  const { name, phone, department, specialization } = req.body;
+
+  db.query(
+    "INSERT INTO doctor (name, phone, department, specialization) VALUES (?, ?, ?, ?)",
+    [name, phone, department, specialization],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+        res.send(err);
+      } else {
+        res.send("Doctor Added ✅");
+      }
+    }
+  );
+});
