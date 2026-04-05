@@ -6,7 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MySQL connection
+// DB connection
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
@@ -15,36 +15,31 @@ const db = mysql.createConnection({
 });
 
 db.connect(err => {
-  if (err) throw err;
-  console.log("MySQL Connected...");
+  if (err) {
+    console.log(err);
+  } else {
+    console.log("MySQL Connected ✅");
+  }
 });
 
-
-// 👇 PUT YOUR API CODE HERE 👇
+// TEST ROUTE
+app.get("/", (req, res) => {
+  res.send("Server working ✅");
+});
 
 // GET all patients
 app.get("/patients", (req, res) => {
   db.query("SELECT * FROM patients", (err, result) => {
-    if (err) res.send(err);
-    else res.json(result);
+    if (err) {
+      console.log(err);
+      res.send(err);
+    } else {
+      res.json(result);
+    }
   });
 });
 
-// ADD patient
-app.post("/patients", (req, res) => {
-  const { name, age, gender } = req.body;
-  db.query(
-    "INSERT INTO patients (name, age, gender) VALUES (?, ?, ?)",
-    [name, age, gender],
-    (err, result) => {
-      if (err) res.send(err);
-      else res.send("Patient Added");
-    }
-  );
-});
-
-
-// Server start
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+// 👇 THIS WAS MISSING
+app.listen(5001, () => {
+  console.log("Running on port 5001");
 });
