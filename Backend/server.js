@@ -43,3 +43,21 @@ app.get("/patients", (req, res) => {
 app.listen(5001, () => {
   console.log("Running on port 5001");
 });
+
+// ADD patient
+app.post("/patients", (req, res) => {
+  const { name, age, gender } = req.body;
+
+  db.query(
+    "INSERT INTO patients (name, age, gender) VALUES (?, ?, ?)",
+    [name, age, gender],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+        res.send(err);
+      } else {
+        res.send("Patient Added ✅");
+      }
+    }
+  );
+});
