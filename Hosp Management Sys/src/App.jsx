@@ -3,9 +3,9 @@ import axios from "axios";
 import {
   Users, UserCheck, CalendarDays, Receipt, LayoutDashboard,
   Bell, Search, ChevronDown, Plus, X, Menu, LogOut,
-  Phone, Stethoscope, Clock, CreditCard, TrendingUp,
-  Activity, AlertCircle, CheckCircle2, XCircle, ChevronRight,
-  Settings, User
+  Phone, Stethoscope, Clock, TrendingUp,
+  Activity, ChevronRight, Settings, User, Pencil, Trash2,
+  AlertTriangle
 } from "lucide-react";
 
 // ─── Department → Specializations map ────────────────────────────────────────
@@ -31,10 +31,9 @@ const DEPARTMENT_SPECIALIZATIONS = {
   "Endocrinology":      ["Diabetes & Metabolism", "Thyroid Disorders", "Pituitary Disorders", "Bone & Mineral"],
   "Rheumatology":       ["Autoimmune Disease", "Inflammatory Arthritis", "Osteoporosis", "Vasculitis"],
 };
-
 const DEPARTMENTS = Object.keys(DEPARTMENT_SPECIALIZATIONS);
 
-// ─── Palette & constants ──────────────────────────────────────────────────────
+// ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
   Scheduled:  { bg: "bg-blue-50",   text: "text-blue-700",  dot: "bg-blue-500"  },
   Completed:  { bg: "bg-green-50",  text: "text-green-700", dot: "bg-green-500" },
@@ -47,7 +46,7 @@ const STATUS_COLORS = {
   Other:      { bg: "bg-gray-100",  text: "text-gray-600",  dot: "bg-gray-400"  },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Reusable components ──────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
   const s = STATUS_COLORS[status] || { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" };
   return (
@@ -59,7 +58,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const StatCard = ({ icon: Icon, label, value, color, trend }) => (
-  <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 group hover:shadow-md transition-all duration-200">
+  <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition-all duration-200">
     <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
       <Icon size={22} className="text-white" />
     </div>
@@ -71,7 +70,6 @@ const StatCard = ({ icon: Icon, label, value, color, trend }) => (
   </div>
 );
 
-// ─── Modal wrapper ─────────────────────────────────────────────────────────────
 const Modal = ({ title, onClose, children }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
@@ -87,7 +85,6 @@ const Modal = ({ title, onClose, children }) => (
   </div>
 );
 
-// ─── Form components ──────────────────────────────────────────────────────────
 const Field = ({ label, children }) => (
   <div className="space-y-1.5">
     <label className="block text-sm font-medium text-slate-700">{label}</label>
@@ -97,7 +94,31 @@ const Field = ({ label, children }) => (
 
 const inputCls = "w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all";
 
-// ─── Table ─────────────────────────────────────────────────────────────────────
+// ─── Confirm Delete Dialog ────────────────────────────────────────────────────
+const ConfirmDelete = ({ message, onConfirm, onCancel }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onCancel} />
+    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+      <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <AlertTriangle size={22} className="text-rose-600" />
+      </div>
+      <h3 className="text-base font-semibold text-slate-800 mb-1">Confirm Delete</h3>
+      <p className="text-sm text-slate-500 mb-6">{message}</p>
+      <div className="flex gap-3">
+        <button onClick={onCancel}
+          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+          Cancel
+        </button>
+        <button onClick={onConfirm}
+          className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium transition-colors">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Table ────────────────────────────────────────────────────────────────────
 const Table = ({ cols, rows, emptyMsg = "No records found" }) => (
   <div className="overflow-x-auto rounded-xl border border-slate-100">
     <table className="w-full text-sm">
@@ -123,13 +144,16 @@ const Table = ({ cols, rows, emptyMsg = "No records found" }) => (
   </div>
 );
 
-// ─── Section Patients ─────────────────────────────────────────────────────────
+// ─── Patients Section (with Delete) ──────────────────────────────────────────
 const PatientsSection = ({ patients, fetchPatients }) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", age: "", gender: "" });
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
 
-  const filtered = patients.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = patients.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -138,6 +162,12 @@ const PatientsSection = ({ patients, fetchPatients }) => {
       setOpen(false);
       fetchPatients();
     });
+  };
+
+  const handleDelete = () => {
+    axios.delete(`http://localhost:5001/patients/${deleteTarget.id}`)
+      .then(() => { setDeleteTarget(null); fetchPatients(); })
+      .catch(() => setDeleteTarget(null));
   };
 
   return (
@@ -151,7 +181,8 @@ const PatientsSection = ({ patients, fetchPatients }) => {
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search patients…" className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
+              placeholder="Search patients…"
+              className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
           </div>
           <button onClick={() => setOpen(true)}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm">
@@ -161,29 +192,36 @@ const PatientsSection = ({ patients, fetchPatients }) => {
       </div>
 
       <Table
-        cols={["#", "Name", "Age", "Gender"]}
+        cols={["#", "Name", "Age", "Gender", "Action"]}
         rows={filtered.map((p) => [
-          <span className="text-slate-400 font-mono text-xs">{String(p.patient_id).padStart(3,"0")}</span>,
+          <span className="text-slate-400 font-mono text-xs">{String(p.patient_id).padStart(3, "0")}</span>,
           <span className="font-medium">{p.name}</span>,
           p.age,
-          <StatusBadge status={p.gender} />
+          <StatusBadge status={p.gender} />,
+          <button
+            onClick={() => setDeleteTarget({ id: p.patient_id, name: p.name })}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"
+          >
+            <Trash2 size={13} /> Delete
+          </button>
         ])}
         emptyMsg="No patients found"
       />
 
+      {/* Add Patient Modal */}
       {open && (
         <Modal title="Register New Patient" onClose={() => setOpen(false)}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Full Name">
-              <input className={inputCls} name="name" placeholder="e.g. Priya Sharma" value={form.name}
-                onChange={e => setForm({...form, name: e.target.value})} required />
+              <input className={inputCls} placeholder="e.g. Priya Sharma" value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })} required />
             </Field>
             <Field label="Age">
-              <input className={inputCls} name="age" type="number" placeholder="e.g. 35" value={form.age}
-                onChange={e => setForm({...form, age: e.target.value})} required />
+              <input className={inputCls} type="number" placeholder="e.g. 35" value={form.age}
+                onChange={e => setForm({ ...form, age: e.target.value })} required />
             </Field>
             <Field label="Gender">
-              <select className={inputCls} value={form.gender} onChange={e => setForm({...form, gender: e.target.value})} required>
+              <select className={inputCls} value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })} required>
                 <option value="">Select gender</option>
                 <option>Male</option>
                 <option>Female</option>
@@ -199,17 +237,25 @@ const PatientsSection = ({ patients, fetchPatients }) => {
           </form>
         </Modal>
       )}
+
+      {/* Delete Confirmation */}
+      {deleteTarget && (
+        <ConfirmDelete
+          message={`Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 };
 
-// ─── Section Doctors ──────────────────────────────────────────────────────────
+// ─── Doctors Section ──────────────────────────────────────────────────────────
 const DoctorsSection = ({ doctors, fetchDoctors }) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", department: "", specialization: "" });
   const [search, setSearch] = useState("");
 
-  // Dynamically derive specializations from selected department
   const availableSpecializations = form.department
     ? DEPARTMENT_SPECIALIZATIONS[form.department] || []
     : [];
@@ -219,7 +265,6 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
     (d.department || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  // Reset specialization whenever department changes
   const handleDepartmentChange = (e) => {
     setForm({ ...form, department: e.target.value, specialization: "" });
   };
@@ -244,7 +289,8 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search doctors…" className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
+              placeholder="Search doctors…"
+              className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-52" />
           </div>
           <button onClick={() => setOpen(true)}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors shadow-sm">
@@ -256,11 +302,11 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
       <Table
         cols={["#", "Name", "Department", "Specialization", "Phone"]}
         rows={filtered.map((d) => [
-          <span className="text-slate-400 font-mono text-xs">{String(d.doctor_id).padStart(3,"0")}</span>,
+          <span className="text-slate-400 font-mono text-xs">{String(d.doctor_id).padStart(3, "0")}</span>,
           <span className="font-medium">{d.name}</span>,
           <span className="text-blue-600 text-xs font-medium bg-blue-50 px-2.5 py-0.5 rounded-full">{d.department}</span>,
           d.specialization,
-          <span className="flex items-center gap-1.5 text-slate-500"><Phone size={13}/>{d.phone}</span>
+          <span className="flex items-center gap-1.5 text-slate-500"><Phone size={13} />{d.phone}</span>
         ])}
         emptyMsg="No doctors found"
       />
@@ -268,50 +314,35 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
       {open && (
         <Modal title="Add New Doctor" onClose={() => setOpen(false)}>
           <form onSubmit={handleSubmit} className="space-y-4">
-
             <Field label="Full Name">
               <input className={inputCls} placeholder="e.g. Dr. Arjun Mehta" value={form.name}
-                onChange={e => setForm({...form, name: e.target.value})} required />
+                onChange={e => setForm({ ...form, name: e.target.value })} required />
             </Field>
-
             <Field label="Phone">
               <input className={inputCls} placeholder="e.g. +91 98765 43210" value={form.phone}
-                onChange={e => setForm({...form, phone: e.target.value})} />
+                onChange={e => setForm({ ...form, phone: e.target.value })} />
             </Field>
-
-            {/* ── Department dropdown ── */}
             <Field label="Department">
               <select className={inputCls} value={form.department} onChange={handleDepartmentChange} required>
                 <option value="">Select department</option>
-                {DEPARTMENTS.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
+                {DEPARTMENTS.map(dept => <option key={dept} value={dept}>{dept}</option>)}
               </select>
             </Field>
-
-            {/* ── Specialization dropdown — locked until department is chosen ── */}
             <Field label="Specialization">
               <select
                 className={`${inputCls} ${!form.department ? "opacity-50 cursor-not-allowed bg-slate-50" : ""}`}
                 value={form.specialization}
-                onChange={e => setForm({...form, specialization: e.target.value})}
+                onChange={e => setForm({ ...form, specialization: e.target.value })}
                 disabled={!form.department}
                 required
               >
-                <option value="">
-                  {form.department ? "Select specialization" : "Select a department first"}
-                </option>
-                {availableSpecializations.map(spec => (
-                  <option key={spec} value={spec}>{spec}</option>
-                ))}
+                <option value="">{form.department ? "Select specialization" : "Select a department first"}</option>
+                {availableSpecializations.map(spec => <option key={spec} value={spec}>{spec}</option>)}
               </select>
               {!form.department && (
-                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                  ↑ Choose a department to unlock specializations
-                </p>
+                <p className="text-xs text-slate-400 mt-1">↑ Choose a department to unlock specializations</p>
               )}
             </Field>
-
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setOpen(false)}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
@@ -325,10 +356,14 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
   );
 };
 
-// ─── Section Appointments ─────────────────────────────────────────────────────
+// ─── Appointments Section (with Edit Status) ──────────────────────────────────
+const APPOINTMENT_STATUSES = ["Scheduled", "Completed", "Cancelled"];
+
 const AppointmentsSection = ({ appointments, patients, doctors, fetchAppointments }) => {
   const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null); // appointment object being edited
   const [form, setForm] = useState({ appointment_date: "", appointment_time: "", status: "Scheduled", patient_id: "", doctor_id: "" });
+  const [editStatus, setEditStatus] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -337,6 +372,19 @@ const AppointmentsSection = ({ appointments, patients, doctors, fetchAppointment
       setOpen(false);
       fetchAppointments();
     });
+  };
+
+  // Open edit modal pre-filled with current appointment status
+  const openEdit = (appt) => {
+    setEditTarget(appt);
+    setEditStatus(appt.status);
+  };
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    axios.put(`http://localhost:5001/appointments/${editTarget.appointment_id}`, { status: editStatus })
+      .then(() => { setEditTarget(null); fetchAppointments(); })
+      .catch(() => setEditTarget(null));
   };
 
   return (
@@ -353,28 +401,35 @@ const AppointmentsSection = ({ appointments, patients, doctors, fetchAppointment
       </div>
 
       <Table
-        cols={["Patient", "Doctor", "Date", "Time", "Status"]}
+        cols={["Patient", "Doctor", "Date", "Time", "Status", "Action"]}
         rows={appointments.map(a => [
           <span className="font-medium">{a.patient_name}</span>,
-          <span className="flex items-center gap-1.5"><Stethoscope size={13} className="text-slate-400"/>{a.doctor_name}</span>,
-          <span className="flex items-center gap-1.5 text-slate-600"><CalendarDays size={13} className="text-slate-400"/>{a.appointment_date}</span>,
-          <span className="flex items-center gap-1.5 text-slate-600"><Clock size={13} className="text-slate-400"/>{a.appointment_time}</span>,
-          <StatusBadge status={a.status} />
+          <span className="flex items-center gap-1.5"><Stethoscope size={13} className="text-slate-400" />{a.doctor_name}</span>,
+          <span className="flex items-center gap-1.5 text-slate-600"><CalendarDays size={13} className="text-slate-400" />{a.appointment_date}</span>,
+          <span className="flex items-center gap-1.5 text-slate-600"><Clock size={13} className="text-slate-400" />{a.appointment_time}</span>,
+          <StatusBadge status={a.status} />,
+          <button
+            onClick={() => openEdit(a)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors"
+          >
+            <Pencil size={13} /> Edit Status
+          </button>
         ])}
         emptyMsg="No appointments found"
       />
 
+      {/* Book Appointment Modal */}
       {open && (
         <Modal title="Book New Appointment" onClose={() => setOpen(false)}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Patient">
-              <select className={inputCls} value={form.patient_id} onChange={e => setForm({...form, patient_id: e.target.value})} required>
+              <select className={inputCls} value={form.patient_id} onChange={e => setForm({ ...form, patient_id: e.target.value })} required>
                 <option value="">Select patient</option>
                 {patients.map(p => <option key={p.patient_id} value={p.patient_id}>{p.name}</option>)}
               </select>
             </Field>
             <Field label="Doctor">
-              <select className={inputCls} value={form.doctor_id} onChange={e => setForm({...form, doctor_id: e.target.value})} required>
+              <select className={inputCls} value={form.doctor_id} onChange={e => setForm({ ...form, doctor_id: e.target.value })} required>
                 <option value="">Select doctor</option>
                 {doctors.map(d => <option key={d.doctor_id} value={d.doctor_id}>{d.name} — {d.department}</option>)}
               </select>
@@ -382,18 +437,16 @@ const AppointmentsSection = ({ appointments, patients, doctors, fetchAppointment
             <div className="grid grid-cols-2 gap-3">
               <Field label="Date">
                 <input type="date" className={inputCls} value={form.appointment_date}
-                  onChange={e => setForm({...form, appointment_date: e.target.value})} required />
+                  onChange={e => setForm({ ...form, appointment_date: e.target.value })} required />
               </Field>
               <Field label="Time">
                 <input type="time" className={inputCls} value={form.appointment_time}
-                  onChange={e => setForm({...form, appointment_time: e.target.value})} required />
+                  onChange={e => setForm({ ...form, appointment_time: e.target.value })} required />
               </Field>
             </div>
             <Field label="Status">
-              <select className={inputCls} value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
-                <option>Scheduled</option>
-                <option>Completed</option>
-                <option>Cancelled</option>
+              <select className={inputCls} value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                {APPOINTMENT_STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
             </Field>
             <div className="flex gap-3 pt-2">
@@ -405,11 +458,70 @@ const AppointmentsSection = ({ appointments, patients, doctors, fetchAppointment
           </form>
         </Modal>
       )}
+
+      {/* Edit Status Modal */}
+      {editTarget && (
+        <Modal title="Edit Appointment Status" onClose={() => setEditTarget(null)}>
+          <form onSubmit={handleEditSubmit} className="space-y-5">
+            {/* Read-only summary */}
+            <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Patient</span>
+                <span className="font-medium text-slate-800">{editTarget.patient_name}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Doctor</span>
+                <span className="font-medium text-slate-800">{editTarget.doctor_name}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Date & Time</span>
+                <span className="font-medium text-slate-800">{editTarget.appointment_date} at {editTarget.appointment_time}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm pt-1 border-t border-slate-200">
+                <span className="text-slate-500">Current Status</span>
+                <StatusBadge status={editTarget.status} />
+              </div>
+            </div>
+
+            <Field label="Update Status To">
+              <div className="grid grid-cols-3 gap-2">
+                {APPOINTMENT_STATUSES.map(s => {
+                  const active = editStatus === s;
+                  const colors = {
+                    Scheduled: active ? "bg-blue-600 text-white border-blue-600" : "border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600",
+                    Completed: active ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600",
+                    Cancelled: active ? "bg-rose-600 text-white border-rose-600" : "border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-600",
+                  };
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setEditStatus(s)}
+                      className={`py-2.5 rounded-xl border text-sm font-medium transition-all ${colors[s]}`}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={() => setEditTarget(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+              <button type="submit" disabled={editStatus === editTarget.status}
+                className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors">
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };
 
-// ─── Section Billing ──────────────────────────────────────────────────────────
+// ─── Billing Section ──────────────────────────────────────────────────────────
 const BillingSection = ({ bills, patients, fetchBills }) => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ bill_date: "", amount: "", payment_status: "Unpaid", patient_id: "" });
@@ -454,7 +566,7 @@ const BillingSection = ({ bills, patients, fetchBills }) => {
         cols={["Patient", "Date", "Amount", "Status"]}
         rows={bills.map(b => [
           <span className="font-medium">{b.patient_name}</span>,
-          <span className="flex items-center gap-1.5 text-slate-600"><CalendarDays size={13} className="text-slate-400"/>{b.bill_date}</span>,
+          <span className="flex items-center gap-1.5 text-slate-600"><CalendarDays size={13} className="text-slate-400" />{b.bill_date}</span>,
           <span className="font-semibold text-slate-800">₹{parseFloat(b.amount).toLocaleString()}</span>,
           <StatusBadge status={b.payment_status} />
         ])}
@@ -465,7 +577,7 @@ const BillingSection = ({ bills, patients, fetchBills }) => {
         <Modal title="Generate Bill" onClose={() => setOpen(false)}>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Patient">
-              <select className={inputCls} value={form.patient_id} onChange={e => setForm({...form, patient_id: e.target.value})} required>
+              <select className={inputCls} value={form.patient_id} onChange={e => setForm({ ...form, patient_id: e.target.value })} required>
                 <option value="">Select patient</option>
                 {patients.map(p => <option key={p.patient_id} value={p.patient_id}>{p.name}</option>)}
               </select>
@@ -473,15 +585,15 @@ const BillingSection = ({ bills, patients, fetchBills }) => {
             <div className="grid grid-cols-2 gap-3">
               <Field label="Bill Date">
                 <input type="date" className={inputCls} value={form.bill_date}
-                  onChange={e => setForm({...form, bill_date: e.target.value})} required />
+                  onChange={e => setForm({ ...form, bill_date: e.target.value })} required />
               </Field>
               <Field label="Amount (₹)">
                 <input type="number" className={inputCls} placeholder="e.g. 1500" value={form.amount}
-                  onChange={e => setForm({...form, amount: e.target.value})} required />
+                  onChange={e => setForm({ ...form, amount: e.target.value })} required />
               </Field>
             </div>
             <Field label="Payment Status">
-              <select className={inputCls} value={form.payment_status} onChange={e => setForm({...form, payment_status: e.target.value})}>
+              <select className={inputCls} value={form.payment_status} onChange={e => setForm({ ...form, payment_status: e.target.value })}>
                 <option>Unpaid</option>
                 <option>Paid</option>
                 <option>Pending</option>
@@ -500,7 +612,7 @@ const BillingSection = ({ bills, patients, fetchBills }) => {
   );
 };
 
-// ─── Overview Dashboard ───────────────────────────────────────────────────────
+// ─── Overview ─────────────────────────────────────────────────────────────────
 const OverviewSection = ({ patients, doctors, appointments, bills, setActiveTab }) => {
   const recent = appointments.slice(-5).reverse();
   const total = bills.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
@@ -524,7 +636,7 @@ const OverviewSection = ({ patients, doctors, appointments, bills, setActiveTab 
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-800">Recent Appointments</h3>
             <button onClick={() => setActiveTab("appointments")} className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              View all <ChevronRight size={13}/>
+              View all <ChevronRight size={13} />
             </button>
           </div>
           {recent.length === 0
@@ -535,7 +647,7 @@ const OverviewSection = ({ patients, doctors, appointments, bills, setActiveTab 
                   <div>
                     <p className="text-sm font-medium text-slate-800">{a.patient_name}</p>
                     <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                      <Stethoscope size={11}/>{a.doctor_name} · {a.appointment_date}
+                      <Stethoscope size={11} />{a.doctor_name} · {a.appointment_date}
                     </p>
                   </div>
                   <StatusBadge status={a.status} />
@@ -563,7 +675,6 @@ const OverviewSection = ({ patients, doctors, appointments, bills, setActiveTab 
               </div>
             );
           })}
-
           <div className="mt-6 pt-4 border-t border-slate-100">
             <h4 className="text-sm font-semibold text-slate-700 mb-3">Billing Summary</h4>
             <div className="grid grid-cols-2 gap-3">
@@ -585,18 +696,16 @@ const OverviewSection = ({ patients, doctors, appointments, bills, setActiveTab 
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 const NAV = [
-  { id: "overview",      label: "Overview",      icon: LayoutDashboard },
-  { id: "patients",      label: "Patients",       icon: Users },
-  { id: "doctors",       label: "Doctors",        icon: UserCheck },
-  { id: "appointments",  label: "Appointments",   icon: CalendarDays },
-  { id: "billing",       label: "Billing",        icon: Receipt },
+  { id: "overview",     label: "Overview",     icon: LayoutDashboard },
+  { id: "patients",     label: "Patients",     icon: Users },
+  { id: "doctors",      label: "Doctors",      icon: UserCheck },
+  { id: "appointments", label: "Appointments", icon: CalendarDays },
+  { id: "billing",      label: "Billing",      icon: Receipt },
 ];
 
 const Sidebar = ({ active, setActive, open, setOpen }) => (
   <>
-    {open && (
-      <div className="fixed inset-0 bg-slate-900/40 z-30 lg:hidden" onClick={() => setOpen(false)} />
-    )}
+    {open && <div className="fixed inset-0 bg-slate-900/40 z-30 lg:hidden" onClick={() => setOpen(false)} />}
     <aside className={`
       fixed top-0 left-0 h-full z-40 w-64 bg-slate-900 flex flex-col
       transform transition-transform duration-300 ease-in-out
@@ -615,25 +724,19 @@ const Sidebar = ({ active, setActive, open, setOpen }) => (
           <X size={18} />
         </button>
       </div>
-
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {NAV.map(({ id, label, icon: Icon }) => {
           const isActive = active === id;
           return (
             <button key={id} onClick={() => { setActive(id); setOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
-                ${isActive
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}>
-              <Icon size={18} />
-              {label}
+                ${isActive ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800"}`}>
+              <Icon size={18} />{label}
               {isActive && <ChevronRight size={14} className="ml-auto" />}
             </button>
           );
         })}
       </nav>
-
       <div className="px-3 py-4 border-t border-slate-800">
         <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
           <Settings size={17} /> Settings
@@ -646,7 +749,7 @@ const Sidebar = ({ active, setActive, open, setOpen }) => (
   </>
 );
 
-// ─── Top Navbar ───────────────────────────────────────────────────────────────
+// ─── Topbar ───────────────────────────────────────────────────────────────────
 const Topbar = ({ active, onMenuToggle }) => {
   const title = NAV.find(n => n.id === active)?.label || "Dashboard";
   return (
@@ -681,7 +784,6 @@ const Topbar = ({ active, onMenuToggle }) => {
 export default function App() {
   const [activeTab, setActiveTab] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -693,43 +795,21 @@ export default function App() {
   const fetchBills        = () => axios.get("http://localhost:5001/bills").then(r => setBills(r.data)).catch(() => {});
 
   useEffect(() => {
-    fetchPatients();
-    fetchDoctors();
-    fetchAppointments();
-    fetchBills();
+    fetchPatients(); fetchDoctors(); fetchAppointments(); fetchBills();
   }, []);
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       <Sidebar active={activeTab} setActive={setActiveTab} open={sidebarOpen} setOpen={setSidebarOpen} />
-
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar active={activeTab} onMenuToggle={() => setSidebarOpen(o => !o)} />
-
         <main className="flex-1 overflow-y-auto">
           <div className="p-4 lg:p-6 max-w-6xl mx-auto">
-            {activeTab === "overview" && (
-              <OverviewSection
-                patients={patients} doctors={doctors}
-                appointments={appointments} bills={bills}
-                setActiveTab={setActiveTab}
-              />
-            )}
-            {activeTab === "patients" && (
-              <PatientsSection patients={patients} fetchPatients={fetchPatients} />
-            )}
-            {activeTab === "doctors" && (
-              <DoctorsSection doctors={doctors} fetchDoctors={fetchDoctors} />
-            )}
-            {activeTab === "appointments" && (
-              <AppointmentsSection
-                appointments={appointments} patients={patients}
-                doctors={doctors} fetchAppointments={fetchAppointments}
-              />
-            )}
-            {activeTab === "billing" && (
-              <BillingSection bills={bills} patients={patients} fetchBills={fetchBills} />
-            )}
+            {activeTab === "overview"      && <OverviewSection patients={patients} doctors={doctors} appointments={appointments} bills={bills} setActiveTab={setActiveTab} />}
+            {activeTab === "patients"      && <PatientsSection patients={patients} fetchPatients={fetchPatients} />}
+            {activeTab === "doctors"       && <DoctorsSection doctors={doctors} fetchDoctors={fetchDoctors} />}
+            {activeTab === "appointments"  && <AppointmentsSection appointments={appointments} patients={patients} doctors={doctors} fetchAppointments={fetchAppointments} />}
+            {activeTab === "billing"       && <BillingSection bills={bills} patients={patients} fetchBills={fetchBills} />}
           </div>
         </main>
       </div>

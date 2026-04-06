@@ -39,15 +39,9 @@ app.get("/patients", (req, res) => {
   });
 });
 
-// 👇 THIS WAS MISSING
-app.listen(5001, () => {
-  console.log("Running on port 5001");
-});
-
 // ADD patient
 app.post("/patients", (req, res) => {
   const { name, age, gender } = req.body;
-
   db.query(
     "INSERT INTO patients (name, age, gender) VALUES (?, ?, ?)",
     [name, age, gender],
@@ -57,6 +51,23 @@ app.post("/patients", (req, res) => {
         res.send(err);
       } else {
         res.send("Patient Added ✅");
+      }
+    }
+  );
+});
+
+// DELETE patient
+app.delete("/patients/:id", (req, res) => {
+  const { id } = req.params;
+  db.query(
+    "DELETE FROM patients WHERE patient_id = ?",
+    [id],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+        res.send(err);
+      } else {
+        res.send("Patient Deleted ✅");
       }
     }
   );
@@ -77,7 +88,6 @@ app.get("/doctors", (req, res) => {
 // ADD doctor
 app.post("/doctors", (req, res) => {
   const { name, phone, department, specialization } = req.body;
-
   db.query(
     "INSERT INTO doctor (name, phone, department, specialization) VALUES (?, ?, ?, ?)",
     [name, phone, department, specialization],
@@ -102,7 +112,6 @@ app.get("/appointments", (req, res) => {
     JOIN patients p ON a.patient_id = p.patient_id
     JOIN doctor d ON a.doctor_id = d.doctor_id
   `;
-
   db.query(query, (err, result) => {
     if (err) {
       console.log(err);
@@ -116,7 +125,6 @@ app.get("/appointments", (req, res) => {
 // ADD appointment
 app.post("/appointments", (req, res) => {
   const { appointment_date, appointment_time, status, patient_id, doctor_id } = req.body;
-
   db.query(
     "INSERT INTO appointment (appointment_date, appointment_time, status, patient_id, doctor_id) VALUES (?, ?, ?, ?, ?)",
     [appointment_date, appointment_time, status, patient_id, doctor_id],
@@ -131,6 +139,24 @@ app.post("/appointments", (req, res) => {
   );
 });
 
+// UPDATE appointment status
+app.put("/appointments/:id", (req, res) => {
+  const { status } = req.body;
+  const { id } = req.params;
+  db.query(
+    "UPDATE appointment SET status = ? WHERE appointment_id = ?",
+    [status, id],
+    (err, result) => {
+      if (err) {
+        console.log(err);
+        res.send(err);
+      } else {
+        res.send("Appointment Status Updated ✅");
+      }
+    }
+  );
+});
+
 // GET all bills
 app.get("/bills", (req, res) => {
   const query = `
@@ -139,7 +165,6 @@ app.get("/bills", (req, res) => {
     FROM bill b
     JOIN patients p ON b.patient_id = p.patient_id
   `;
-
   db.query(query, (err, result) => {
     if (err) {
       console.log(err);
@@ -153,7 +178,6 @@ app.get("/bills", (req, res) => {
 // ADD bill
 app.post("/bills", (req, res) => {
   const { bill_date, amount, payment_status, patient_id } = req.body;
-
   db.query(
     "INSERT INTO bill (bill_date, amount, payment_status, patient_id) VALUES (?, ?, ?, ?)",
     [bill_date, amount, payment_status, patient_id],
@@ -166,4 +190,9 @@ app.post("/bills", (req, res) => {
       }
     }
   );
+});
+
+// START SERVER — always at the end
+app.listen(5001, () => {
+  console.log("Running on port 5001");
 });
