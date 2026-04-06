@@ -8,6 +8,32 @@ import {
   Settings, User
 } from "lucide-react";
 
+// ─── Department → Specializations map ────────────────────────────────────────
+const DEPARTMENT_SPECIALIZATIONS = {
+  "Cardiology":         ["Interventional Cardiology", "Electrophysiology", "Heart Failure", "Cardiac Imaging"],
+  "Neurology":          ["Stroke & Cerebrovascular", "Epilepsy", "Movement Disorders", "Neuro-oncology"],
+  "Orthopedics":        ["Joint Replacement", "Spine Surgery", "Sports Medicine", "Pediatric Orthopedics"],
+  "Pediatrics":         ["Neonatology", "Pediatric Cardiology", "Pediatric Neurology", "General Pediatrics"],
+  "Gynecology":         ["Obstetrics", "Reproductive Medicine", "Gynecologic Oncology", "Urogynecology"],
+  "Dermatology":        ["Cosmetic Dermatology", "Pediatric Dermatology", "Dermatopathology", "Mohs Surgery"],
+  "Ophthalmology":      ["Retina & Vitreous", "Glaucoma", "Cornea & External Disease", "Cataract Surgery"],
+  "ENT":                ["Rhinology", "Otology", "Head & Neck Surgery", "Laryngology"],
+  "Gastroenterology":   ["Hepatology", "Endoscopy", "Inflammatory Bowel Disease", "Pancreatic Disorders"],
+  "Pulmonology":        ["Critical Care", "Sleep Medicine", "Interventional Pulmonology", "Asthma & Allergy"],
+  "Urology":            ["Robotic Surgery", "Urologic Oncology", "Female Urology", "Pediatric Urology"],
+  "Oncology":           ["Medical Oncology", "Radiation Oncology", "Surgical Oncology", "Hematology"],
+  "Psychiatry":         ["Child Psychiatry", "Addiction Medicine", "Geriatric Psychiatry", "Forensic Psychiatry"],
+  "Radiology":          ["Interventional Radiology", "Neuroradiology", "Musculoskeletal Radiology", "Nuclear Medicine"],
+  "Anesthesiology":     ["Cardiac Anesthesia", "Pediatric Anesthesia", "Pain Management", "Neuroanesthesia"],
+  "Emergency Medicine": ["Trauma", "Toxicology", "Disaster Medicine", "Pediatric Emergency"],
+  "General Surgery":    ["Laparoscopic Surgery", "Bariatric Surgery", "Colorectal Surgery", "Vascular Surgery"],
+  "Nephrology":         ["Dialysis", "Kidney Transplant", "Glomerular Disease", "Hypertension"],
+  "Endocrinology":      ["Diabetes & Metabolism", "Thyroid Disorders", "Pituitary Disorders", "Bone & Mineral"],
+  "Rheumatology":       ["Autoimmune Disease", "Inflammatory Arthritis", "Osteoporosis", "Vasculitis"],
+};
+
+const DEPARTMENTS = Object.keys(DEPARTMENT_SPECIALIZATIONS);
+
 // ─── Palette & constants ──────────────────────────────────────────────────────
 const STATUS_COLORS = {
   Scheduled:  { bg: "bg-blue-50",   text: "text-blue-700",  dot: "bg-blue-500"  },
@@ -16,6 +42,9 @@ const STATUS_COLORS = {
   Pending:    { bg: "bg-amber-50",  text: "text-amber-700", dot: "bg-amber-500" },
   Paid:       { bg: "bg-green-50",  text: "text-green-700", dot: "bg-green-500" },
   Unpaid:     { bg: "bg-red-50",    text: "text-red-700",   dot: "bg-red-500"   },
+  Male:       { bg: "bg-blue-50",   text: "text-blue-700",  dot: "bg-blue-400"  },
+  Female:     { bg: "bg-pink-50",   text: "text-pink-700",  dot: "bg-pink-400"  },
+  Other:      { bg: "bg-gray-100",  text: "text-gray-600",  dot: "bg-gray-400"  },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -133,7 +162,7 @@ const PatientsSection = ({ patients, fetchPatients }) => {
 
       <Table
         cols={["#", "Name", "Age", "Gender"]}
-        rows={filtered.map((p, i) => [
+        rows={filtered.map((p) => [
           <span className="text-slate-400 font-mono text-xs">{String(p.patient_id).padStart(3,"0")}</span>,
           <span className="font-medium">{p.name}</span>,
           p.age,
@@ -180,10 +209,20 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
   const [form, setForm] = useState({ name: "", phone: "", department: "", specialization: "" });
   const [search, setSearch] = useState("");
 
+  // Dynamically derive specializations from selected department
+  const availableSpecializations = form.department
+    ? DEPARTMENT_SPECIALIZATIONS[form.department] || []
+    : [];
+
   const filtered = doctors.filter(d =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
     (d.department || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  // Reset specialization whenever department changes
+  const handleDepartmentChange = (e) => {
+    setForm({ ...form, department: e.target.value, specialization: "" });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -216,7 +255,7 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
 
       <Table
         cols={["#", "Name", "Department", "Specialization", "Phone"]}
-        rows={filtered.map((d, i) => [
+        rows={filtered.map((d) => [
           <span className="text-slate-400 font-mono text-xs">{String(d.doctor_id).padStart(3,"0")}</span>,
           <span className="font-medium">{d.name}</span>,
           <span className="text-blue-600 text-xs font-medium bg-blue-50 px-2.5 py-0.5 rounded-full">{d.department}</span>,
@@ -229,24 +268,50 @@ const DoctorsSection = ({ doctors, fetchDoctors }) => {
       {open && (
         <Modal title="Add New Doctor" onClose={() => setOpen(false)}>
           <form onSubmit={handleSubmit} className="space-y-4">
+
             <Field label="Full Name">
               <input className={inputCls} placeholder="e.g. Dr. Arjun Mehta" value={form.name}
                 onChange={e => setForm({...form, name: e.target.value})} required />
             </Field>
+
             <Field label="Phone">
               <input className={inputCls} placeholder="e.g. +91 98765 43210" value={form.phone}
                 onChange={e => setForm({...form, phone: e.target.value})} />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Department">
-                <input className={inputCls} placeholder="e.g. Cardiology" value={form.department}
-                  onChange={e => setForm({...form, department: e.target.value})} />
-              </Field>
-              <Field label="Specialization">
-                <input className={inputCls} placeholder="e.g. Interventional" value={form.specialization}
-                  onChange={e => setForm({...form, specialization: e.target.value})} />
-              </Field>
-            </div>
+
+            {/* ── Department dropdown ── */}
+            <Field label="Department">
+              <select className={inputCls} value={form.department} onChange={handleDepartmentChange} required>
+                <option value="">Select department</option>
+                {DEPARTMENTS.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </Field>
+
+            {/* ── Specialization dropdown — locked until department is chosen ── */}
+            <Field label="Specialization">
+              <select
+                className={`${inputCls} ${!form.department ? "opacity-50 cursor-not-allowed bg-slate-50" : ""}`}
+                value={form.specialization}
+                onChange={e => setForm({...form, specialization: e.target.value})}
+                disabled={!form.department}
+                required
+              >
+                <option value="">
+                  {form.department ? "Select specialization" : "Select a department first"}
+                </option>
+                {availableSpecializations.map(spec => (
+                  <option key={spec} value={spec}>{spec}</option>
+                ))}
+              </select>
+              {!form.department && (
+                <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                  ↑ Choose a department to unlock specializations
+                </p>
+              )}
+            </Field>
+
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setOpen(false)}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
@@ -455,7 +520,6 @@ const OverviewSection = ({ patients, doctors, appointments, bills, setActiveTab 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent appointments */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-slate-800">Recent Appointments</h3>
@@ -481,7 +545,6 @@ const OverviewSection = ({ patients, doctors, appointments, bills, setActiveTab 
           }
         </div>
 
-        {/* Quick stats */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <h3 className="font-semibold text-slate-800 mb-4">Appointment Status</h3>
           {["Scheduled", "Completed", "Cancelled"].map(status => {
@@ -531,18 +594,15 @@ const NAV = [
 
 const Sidebar = ({ active, setActive, open, setOpen }) => (
   <>
-    {/* Mobile overlay */}
     {open && (
       <div className="fixed inset-0 bg-slate-900/40 z-30 lg:hidden" onClick={() => setOpen(false)} />
     )}
-
     <aside className={`
       fixed top-0 left-0 h-full z-40 w-64 bg-slate-900 flex flex-col
       transform transition-transform duration-300 ease-in-out
       ${open ? "translate-x-0" : "-translate-x-full"}
       lg:translate-x-0 lg:static lg:z-auto
     `}>
-      {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-800">
         <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
           <Activity size={18} className="text-white" />
@@ -556,7 +616,6 @@ const Sidebar = ({ active, setActive, open, setOpen }) => (
         </button>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {NAV.map(({ id, label, icon: Icon }) => {
           const isActive = active === id;
@@ -575,7 +634,6 @@ const Sidebar = ({ active, setActive, open, setOpen }) => (
         })}
       </nav>
 
-      {/* Bottom */}
       <div className="px-3 py-4 border-t border-slate-800">
         <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
           <Settings size={17} /> Settings
